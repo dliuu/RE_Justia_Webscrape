@@ -10,6 +10,7 @@ import requests
 import json
 import urllib.request
 from bs4 import BeautifulSoup
+import csv
 
 
 def question_lookup(url_list:list, sub_url:str):
@@ -25,7 +26,8 @@ def question_lookup(url_list:list, sub_url:str):
 
 
 def directory_to_cleaned_list(dir:str):
-  '''Iterates through all files of a dictionary and returns a list of URLs matching the sub url.
+  '''Iterates through all files of a dictionary and returns a list of URLs 
+  matching the sub url.
   '''
   cleaned_URLs = []
 
@@ -82,26 +84,33 @@ def scrape(url:str):
   
   return return_dict
 
+def save_to_csv(data, filename):
+    header = ['question_title', 'question_description', 'answer', 'upvote_count']
+
+    rows = []
+    for key, value in data.items():
+        if key.startswith('answer'):
+            answer, upvote_count = value
+            question_title = data['question_title']
+            question_description = data['question_description']
+            rows.append([question_title, question_description, answer, upvote_count])
+
+    #Check if file exists --> append header if not
+    file_exists = os.path.isfile(filename)
+
+    with open(filename, 'a', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        
+        if not file_exists:
+            writer.writerow(header)
+
+        writer.writerows(rows)
+
 #__Main__
 directory = 'Justia_rawURLs'
 sub_url = "https://answers.justia.com/question/"
 
-print_list = []
 url_list = directory_to_cleaned_list(directory)
 for url in url_list:
-  print_list.append(scrape(url))
-
-print(print_list)
-
-
-
-
-#url = 'https://answers.justia.com/question/2023/10/20/i-live-in-ny-state-i-have-a-question-reg-984781'
-
-#suggested_answer = data['mainEntity']['suggestedAnswer'][0]['text']
-#print(data['mainEntity']['suggestedAnswer'][0])
-#print(data['mainEntity']['suggestedAnswer'][1]['text'])
-
-#page = requests.get(url)
-#soup = BeautifulSoup(page.content, 'html.parser')
+  save_to_csv(scrape(url), 'Justia_data.csv')
 
