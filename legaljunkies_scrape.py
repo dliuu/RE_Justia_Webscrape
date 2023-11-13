@@ -25,7 +25,7 @@ def question_lookup(url_list:list, sub_url:str):
 
 
 
-def directory_to_cleaned_list(dir:str):
+def directory_to_cleaned_list(dir:str, sub_url: str):
   '''Iterates through all files of a dictionary and returns a list of URLs 
   matching the sub url.
   '''
@@ -38,7 +38,7 @@ def directory_to_cleaned_list(dir:str):
 
     all_urls = df['Unnamed: 1'].tolist()
     all_urls = all_urls[1:]
-    question_urls = question_lookup(all_urls, "https://answers.justia.com/question/")
+    question_urls = question_lookup(all_urls, sub_url)
   
     for url in question_urls:
       cleaned_URLs.append(url)
@@ -53,7 +53,7 @@ def directory_to_cleaned_list(dir:str):
 
   #print('length of cleaned URL list: ' + str(len(unique_URLs)))
 
-def scrape(url:str):
+def scrape(url:str, filename:str):
   ''' Takes a url from the Question page of Justia and outputs a dictionary in the form:
   {question_title: question_title,
   question_description: question_description,
@@ -63,26 +63,33 @@ def scrape(url:str):
   print('scraping ' + str(url))
   return_dict = {}
 
-  url_lib= urllib.request.urlopen(url).read()
-  soup = BeautifulSoup(url_lib, 'html.parser')
-  data = json.loads(soup.find('script', type='application/ld+json').text)
+  apikey = '4916e294a8357d561fab297cbd2089552578b2bc'
+  params = {
+    'url': url,
+    'apikey': apikey,
+    'js_render': 'true',
+    'antibot': 'true',
+    'premium_proxy': 'true',
+}
+  response = requests.get('https://api.zenrows.com/v1/', params=params)
 
-  question_title = data['mainEntity']['name']
-  question_description = data['mainEntity']['text']
+  soup = BeautifulSoup(response.text, 'html.parser')
+  data = soup.find_all('div', {"js-post__content-text restore h-wordwrap"})
 
-  return_dict['question_title'] = question_title
-  return_dict['question_description'] = question_description
+  with open(filename, 'a', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        rows=[]
+        header = ['scraped_text']
 
-  all_answers = data['mainEntity']['suggestedAnswer']
+        rows.append([data])
 
+        #check if file exists
+        file_exists = os.path.isfile(filename)
+        
+        if not file_exists:
+            writer.writerow(header)
 
-  for idx, a_obj in enumerate(all_answers):
-    answer = a_obj['text']
-    upvotes = a_obj['upvoteCount']
-    answer_tuple = tuple([answer, upvotes])
-    return_dict['answer' + str(idx)] = answer_tuple
-  
-  return return_dict
+        writer.writerows(rows)
 
 def save_to_csv(data, filename):
     header = ['question_title', 'question_description', 'answer', 'upvote_count']
@@ -107,10 +114,35 @@ def save_to_csv(data, filename):
         writer.writerows(rows)
 
 #__Main__
-directory = 'Justia_rawURLs'
-sub_url = "https://answers.justia.com/question/"
 
-url_list = directory_to_cleaned_list(directory)
-for url in url_list:
-  save_to_csv(scrape(url), 'Justia_data.csv')
+directory = 'Justia_rawURLs'
+url = "https://forum.legaljunkies.com/forum/real-estate-and-property-law/buying-and-selling-property/mortgages-refinancing-foreclosure/658349-what-is-the-proof-of-income-for-a-mortgage-loan"
+
+scrape(url, 'legaljunkies_test.csv')
+
+
+
+
+
+'''
+ apikey = '4916e294a8357d561fab297cbd2089552578b2bc'
+params = {
+    'url': url,
+    'apikey': apikey,
+    'js_render': 'true',
+    'antibot': 'true',
+    'premium_proxy': 'true',
+}
+response = requests.get('https://api.zenrows.com/v1/', params=params)
+#print(response.text)
+
+
+soup = BeautifulSoup(response.text, 'html.parser')
+data = soup.find_all('div', {"js-post__content-text restore h-wordwrap"})
+print(data)
+'''
+
+#url_list = directory_to_cleaned_list(directory)
+#for url in url_list:
+#save_to_csv(scrape(url), 'Justia_data.csv')
 
